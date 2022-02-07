@@ -1,3 +1,4 @@
 *.pyc
-\logs\*.*
-/logs/*.*
+logs/
+my_model/
+saved_models/
