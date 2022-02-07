@@ -1,7 +1,9 @@
 import utils as utils
 from ISTA import ISTA_solver, FISTA_solver
+import LISTA as lista
 import numpy as np
 import matplotlib.pyplot as plt
+import tensorflow as tf
 
 ##Any function is this file should be working without any additional parameters
 #Example : Test_example_FISTA() is a valid command
@@ -104,6 +106,8 @@ def Test_example_ISTA(cv = False, lambd = 0.1, show_plots = False, dict = None, 
     return res, x_hat, x_step
 
 
+
+
 ##Compare_speeds: Computes the step by step residuals of ISTA and FISTA
 #The problem is fixed for both methods so this should be used instead of independent calls to ..._ISTA and ..._FISTA
 def Compare_speeds(n_cols = 200, n_rows = 100, sparsity = 10, cv = False, max_iter = 100):
@@ -138,3 +142,78 @@ def Compare_speeds(n_cols = 200, n_rows = 100, sparsity = 10, cv = False, max_it
     plt.show()
 
 
+
+##Test_example_LISTA_1_Layer: setups a 1 layer LISTA, trains it and returns mse over some test set
+#All parameters are optional
+#show_plots: boolean value on whether or not to display various plots
+#dict: fixed dictionary
+#train_size: number of samples to train LISTA
+#test_size: number of samples to test the trained LISTA
+
+def Test_example_LISTA_1_Layer(show_plots = False, cv = False, lambd = 0.1, dict = None,  sparsity = 10, n_cols = 200, n_rows = 100, train_size = 500, test_size = 100, batch_size = 25):
+    if dict is None:
+        dict = utils.Generate_gaussian_dictionary(n_cols = n_cols, n_rows = n_rows, se = 1)
+
+    #Gen model
+    model = lista.setup_LISTA_1_Layer(signal_dim = n_rows, sol_dim = n_cols)
+
+    #We simulate a single signal that we will use to show how LISTA evolves before and after training on a specific example
+    #This signal is not seen during training
+    if show_plots:
+        single_x_0 = tf.convert_to_tensor(utils.Create_sparse_x(len(dict[0]), sparsity)) 
+        single_obs = tf.linalg.matvec(dict, single_x_0)
+        single_x_hat_untrained = model(single_obs)
+
+    #Gen true solutions and observations to train the model
+    list_x_0 = np.array([tf.convert_to_tensor(utils.Create_sparse_x(len(dict[0]), sparsity)) for i in range(train_size)])
+    list_obs = [tf.linalg.matvec(dict, list_x_0[i]) for i in range(len(list_x_0))]
+
+    #Train model
+    history = lista.train_LISTA_1_Layer(model=model, array_obs=list_obs, array_sols = list_x_0, batch_size = batch_size)
+    print(history.history['loss'])
+
+    #Test model
+    list_test_x_0 = np.array([tf.convert_to_tensor(utils.Create_sparse_x(len(dict[0]), sparsity)) for i in range(test_size)])
+    list_test_obs = [tf.linalg.matvec(dict, list_x_0[i]) for i in range(len(list_test_x_0))]
+    list_test_x_hat = [model(input_signal = list_test_obs[i]) for i in range(len(list_test_obs))]
+    avg_error =  tf.reduce_mean(tf.square(list_test_x_0 - list_test_x_hat))
+    print("average error when testing trained 1 layer LISTA : " + str(avg_error.numpy()))
+
+    if show_plots:
+        plt.figure()
+        plt.title('mse through learning')
+        plt.plot(history.history['loss'])
+        plt.show()
+
+
+        single_x_hat_trained = model(single_obs)
+        plt.figure()
+        plt.title('True coefficients, and coefficients recovered by untrained and trained LISTA')
+        plt.plot(single_x_0, label='true coefficients')
+        plt.plot(single_x_hat_untrained, label='untrained LISTA')
+        plt.plot(single_x_hat_trained, label='trained LISTA')
+        plt.legend()
+        plt.show()
+
+
+
+    """ if show_plots:
+        plt.figure()
+        plt.title('original atoms (g), recovered atoms (b), sign support of recovered atoms (r)')
+        plt.plot(x_0, 'g-')
+        plt.plot(x_hat, 'b+')
+        plt.plot(x_step, 'r+')
+        plt.show()
+
+        plt.figure()
+        plt.title('original (observed) signal (g) and recovered signal (b)')
+        plt.plot(np.matmul(dict,x_0), 'g-')
+        plt.plot(np.matmul(dict,x_hat), 'b+')
+        plt.show()
+
+        plt.figure()
+        plt.title('Convergence of FISTA')
+        plt.plot(res, 'g-')
+        plt.show()
+
+    return res, x_hat, x_step """
