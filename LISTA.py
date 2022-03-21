@@ -38,16 +38,14 @@ class ISTA_Layer(keras.layers.Layer):
         self.signal_dim = signal_dim
         self.rate = rate
 
-        self.W_1 = self.add_weight(shape = (sol_dim, signal_dim),
-                                        initializer = "random_normal", trainable=True, name="W_1 at depth" + depth)
-        self.W_2 = self.add_weight(shape = (sol_dim, sol_dim),
-                                        initializer = "random_normal", trainable=True, name="W_2 at depth" + depth)
-        
+        self.W_1 = self.add_weight(shape = (sol_dim, signal_dim), initializer = "random_normal", trainable=True, name="W_1 at depth" + depth)
+        self.W_2 = self.add_weight(shape = (sol_dim, sol_dim), initializer = "random_normal", trainable=True, name="W_2 at depth" + depth)
         self.theta = tf.Variable(0.1, trainable=True, name="theta at depth" + depth)
 
     def call(self, input_signal, input_sol):
         z = tf.add(tf.linalg.matvec(self.W_1,input_signal), tf.linalg.matvec(self.W_2, input_sol)) #z = W_1 b +W_2x;
         return soft_threshold(z, self.theta)
+
         """
         pos_ret = keras.activations.relu(z - self.theta)       #Soft_max(z,theta)  = (Id-theta)1_{z>theta} - (Id+theta)1_{z<-theta} 
         neg_ret =  keras.activations.relu( -z - self.theta)    #                   = ReLU(z -theta) - ReLU(-z-theta)
@@ -227,7 +225,8 @@ def setup_LISTA_L_Layer(signal_dim, sol_dim, dict, L=16):
     return model
 
 ##train_LISTA_L_Layer(): Trains a model initialized by LISTA_L_Layer (or any compiled model)
-def train_LISTA_L_Layer(model, array_obs, array_sols, batch_size=1, epochs=10, L = 16):
+def train_LISTA_L_Layer(model, array_obs, array_sols, batch_size=1, epochs=10, L = 16, weight_decay = False, AAO = False, double_pass = True):
+    
     decay = 0.2
     j=0
     historylist = [[] for i in range(L+1)] #First index corresponds to the weighted loss
@@ -235,31 +234,83 @@ def train_LISTA_L_Layer(model, array_obs, array_sols, batch_size=1, epochs=10, L
     
     print("Starting to train LISTA "+str(L)+" layer with batchsize" + str(batch_size) + "and epochs" + str(epochs))
     weights = np.zeros(L)
+    first_weights = np.zeros(L)
+
     layers = model.layers
+    first_pass = True
     for layer in layers:
         layer.trainable = False
-    for i in range(L):
-        print("In train_LISTA_"+str(L)+"_Layer() : starting to learn layer " + str(i))
-        weights *= decay    ##decay multiplication MUST BE BEFORE setting i-th weight to 1
-        weights[i] = 1.0
-        layers[i].trainable = True
+
+    #######All at once training
+    if AAO:
+        weights[-1] = 1.0
+        for k in range(L):
+            layers[k].trainable = True
+        layers[-1].trainable = True
         model.compile(optimizer=keras.optimizers.Adam(), 
             loss=[keras.losses.MeanSquaredError() for i in range(L)],
             loss_weights = weights)
+        new_hist = model.fit(x = np.array(array_obs), y = [np.array(array_sols) for i in range(L)], 
+                                batch_size = batch_size,epochs = epochs).history
+        print(new_hist)
+                                
+        return new_hist
 
-        new_hist = model.fit(x = np.array(array_obs), y = [np.array(array_sols) for i in range(L)], batch_size = batch_size,epochs = epochs).history
+    #######Layer by layer training
+    for i in range(L):
+        if double_pass:
+            ########Locking previous layers on first pass
+        
+            print("In train_LISTA_"+str(L)+"_Layer() : starting to learn layer " + str(i))
+            for layer in layers:
+                layer.trainable = False
+            first_weights[i-1] = 0.0
+            first_weights[i] = 1.0
+            layers[i].trainable = True
+            model.compile(optimizer=keras.optimizers.Adam(), 
+                loss=[keras.losses.MeanSquaredError() for l in range(L)],
+                loss_weights = first_weights)
 
+            new_hist = model.fit(x = np.array(array_obs), y = [np.array(array_sols) for l in range(L)], 
+                                    batch_size = batch_size,epochs = epochs).history
+            ##Everything below is to return a single dictionnary with all losses through layers and epochs
+            #I hope the order of a dict with constant names is consistent (it seems to be the case), oth nonsense might happen
+            for l in new_hist:
+                historylist[j].extend(new_hist[l])
+                j+=1
+            j=0
+ 
+            
+        ##Training without fixed layers
+        
+        
+        if weight_decay:
+            weights *= decay    ##decay multiplication MUST BE BEFORE setting i-th weight to 1
+        else:
+            weights[i-1] = 0.0
+        weights[i] = 1.0
+        for k in range(i):
+            layers[k].trainable = True
+        layers[i].trainable = True
+        model.compile(optimizer=keras.optimizers.Adam(), 
+            loss=[keras.losses.MeanSquaredError() for l in range(L)],
+            loss_weights = weights)
+        new_hist = model.fit(x = np.array(array_obs), y = [np.array(array_sols) for l in range(L)], 
+                                batch_size = batch_size,epochs = epochs).history
         ##Everything below is to return a single dictionnary with all losses through layers and epochs
         #I hope the order of a dict with constant names is consistent (it seems to be the case), oth nonsense might happen
         for l in new_hist:
             historylist[j].extend(new_hist[l])
             j+=1
-        j = 0
+        j=0
 
 
-    for l in new_hist:
-        history.update({l:historylist[j]})  #We rebuild a dictionary but with the whole list of errors
-        j+=1
+
+
+        for l in new_hist:
+            history.update({l:historylist[j]})  #We rebuild a dictionary but with the whole list of errors
+            j+=1
+        j=0
         
     return history
 

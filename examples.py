@@ -1,5 +1,5 @@
 import utils as utils
-from ISTA import ISTA_solver, FISTA_solver
+from ISTA import ISTA_solver, FISTA_solver, FISTA_solver_true_res, ISTA_solver_true_res, ISTA_solver_true_res_Im, FISTA_solver_true_res_Im
 import LISTA as lista
 import numpy as np
 import matplotlib.pyplot as plt
@@ -57,6 +57,50 @@ def Test_example_FISTA(show_plots = False, cv = False, lambd = 0.1, dict = None,
 
     return res, x_hat, x_step
 
+def Test_example_FISTA_avg(show_plots = False, cv = False, test_cv =10, lambd = 0.1, dict = None, list_obs = None, list_x_0 = None, sparsity = 10, n_cols = 200, n_rows = 100, k_max = 100):
+    if dict is None:
+        dict = utils.Generate_gaussian_dictionary(n_cols = n_cols, n_rows = n_rows, se = 1)
+    if list_obs is None:
+        x_0 = utils.Create_sparse_x(len(dict[0]), sparsity)
+        list_obs = [tf.linalg.matvec(dict, list_x_0[i]) for i in range(len(list_x_0))]
+
+    max_eig = max(np.linalg.eigvals(np.matmul(dict.transpose(), dict)))
+
+    if cv:
+        FISTA_solver_fixed_param = lambda y, lambd, A : FISTA_solver(A = A, obs = y, k_max = k_max, L=max_eig, lambd = lambd)
+        hyperparams_list = np.linspace(0,2,50)
+        cv_lambda = utils.Cross_validation_list_obs(list_obs=list_obs[0:test_cv], list_x_0=list_x_0[0:test_cv], dict = dict, solver = FISTA_solver_fixed_param, nfolds=2, hyperparameters=hyperparams_list, plot=True)
+        print("In Test_example_FISTA_avg(): lambda selected by cross-validation : " + str(cv_lambda))
+        lambd = cv_lambda
+    RSS = np.zeros(k_max)
+    for k in range(len(list_obs)):
+        (x_hat,res) = FISTA_solver_true_res(A = dict, true_val = list_x_0[k], obs = list_obs[k], k_max=k_max, L=max_eig, lambd = lambd)
+        RSS += res
+    for k in range(len(RSS)):
+        RSS[k] *= 1.0/ float( len(list_obs))
+    return RSS
+def Test_example_FISTA_avg_Im(show_plots = False, cv = False, test_cv =10, lambd = 0.1, dict = None, list_obs = None, list_x_0 = None, sparsity = 10, n_cols = 200, n_rows = 100, k_max = 100):
+    if dict is None:
+        dict = utils.Generate_gaussian_dictionary(n_cols = n_cols, n_rows = n_rows, se = 1)
+    if list_obs is None:
+        x_0 = utils.Create_sparse_x(len(dict[0]), sparsity)
+        list_obs = [tf.linalg.matvec(dict, list_x_0[i]) for i in range(len(list_x_0))]
+
+    max_eig = max(np.linalg.eigvals(np.matmul(dict.transpose(), dict)))
+
+    if cv:
+        FISTA_solver_fixed_param = lambda y, lambd, A : FISTA_solver(A = A, obs = y, k_max = k_max, L=max_eig, lambd = lambd)
+        hyperparams_list = np.linspace(0,2,50)
+        cv_lambda = utils.Cross_validation_list_obs(list_obs=list_obs[0:test_cv], list_x_0=list_x_0[0:test_cv], dict = dict, solver = FISTA_solver_fixed_param, nfolds=2, hyperparameters=hyperparams_list, plot=True)
+        print("In Test_example_FISTA_avg(): lambda selected by cross-validation : " + str(cv_lambda))
+        lambd = cv_lambda
+    RSS = np.zeros(k_max)
+    for k in range(len(list_obs)):
+        (x_hat,res) = FISTA_solver_true_res_Im(A = dict, true_val = list_x_0[k], obs = list_obs[k], k_max=k_max, L=max_eig, lambd = lambd)
+        RSS += res
+    for k in range(len(RSS)):
+        RSS[k] *= 1.0/ float( len(list_obs))
+    return RSS
 ##Test_example_ISTA: computes ISTA with various parameters
 #All parameters are optional
 #show_plots: boolean value on whether or not to display various plots
@@ -105,7 +149,51 @@ def Test_example_ISTA(cv = False, lambd = 0.1, show_plots = False, dict = None, 
 
     return res, x_hat, x_step
 
+def Test_example_ISTA_avg(show_plots = False, cv = False, test_cv =10, lambd = 0.1, dict = None, list_obs = None, list_x_0 = None, sparsity = 10, n_cols = 200, n_rows = 100, k_max = 100):
+    if dict is None:
+        dict = utils.Generate_gaussian_dictionary(n_cols = n_cols, n_rows = n_rows, se = 1)
+    if list_obs is None:
+        x_0 = utils.Create_sparse_x(len(dict[0]), sparsity)
+        list_obs = [tf.linalg.matvec(dict, list_x_0[i]) for i in range(len(list_x_0))]
 
+    max_eig = max(np.linalg.eigvals(np.matmul(dict.transpose(), dict)))
+
+    if cv:
+        FISTA_solver_fixed_param = lambda y, lambd, A : ISTA_solver(A = A, obs = y, k_max = k_max, L=max_eig, lambd = lambd)
+        hyperparams_list = np.linspace(0,2,50)
+        cv_lambda = utils.Cross_validation_list_obs(list_obs=list_obs[0:test_cv], list_x_0=list_x_0[0:test_cv], dict = dict, solver = FISTA_solver_fixed_param, nfolds=2, hyperparameters=hyperparams_list, plot=True)
+        print("In Test_example_FISTA_avg(): lambda selected by cross-validation : " + str(cv_lambda))
+        lambd = cv_lambda
+    RSS = np.zeros(k_max)
+    for k in range(len(list_obs)):
+        (x_hat,res) = ISTA_solver_true_res(A = dict, true_val = list_x_0[k], obs = list_obs[k], k_max=k_max, L=max_eig, lambd = lambd)
+        RSS += res
+    for k in range(len(RSS)):
+        RSS[k] *= 1.0/ float( len(list_obs))
+    return RSS
+
+def Test_example_ISTA_avg_Im(show_plots = False, cv = False, test_cv =10, lambd = 0.1, dict = None, list_obs = None, list_x_0 = None, sparsity = 10, n_cols = 200, n_rows = 100, k_max = 100):
+    if dict is None:
+        dict = utils.Generate_gaussian_dictionary(n_cols = n_cols, n_rows = n_rows, se = 1)
+    if list_obs is None:
+        x_0 = utils.Create_sparse_x(len(dict[0]), sparsity)
+        list_obs = [tf.linalg.matvec(dict, list_x_0[i]) for i in range(len(list_x_0))]
+
+    max_eig = max(np.linalg.eigvals(np.matmul(dict.transpose(), dict)))
+
+    if cv:
+        FISTA_solver_fixed_param = lambda y, lambd, A : ISTA_solver(A = A, obs = y, k_max = k_max, L=max_eig, lambd = lambd)
+        hyperparams_list = np.linspace(0,2,50)
+        cv_lambda = utils.Cross_validation_list_obs(list_obs=list_obs[0:test_cv], list_x_0=list_x_0[0:test_cv], dict = dict, solver = FISTA_solver_fixed_param, nfolds=2, hyperparameters=hyperparams_list, plot=True)
+        print("In Test_example_FISTA_avg(): lambda selected by cross-validation : " + str(cv_lambda))
+        lambd = cv_lambda
+    RSS = np.zeros(k_max)
+    for k in range(len(list_obs)):
+        (x_hat,res) = ISTA_solver_true_res_Im(A = dict, true_val = list_x_0[k], obs = list_obs[k], k_max=k_max, L=max_eig, lambd = lambd)
+        RSS += res
+    for k in range(len(RSS)):
+        RSS[k] *= 1.0/ float( len(list_obs))
+    return RSS
 
 
 ##Compare_speeds: Computes the step by step residuals of ISTA and FISTA
@@ -265,7 +353,7 @@ def Test_example_LISTA_4_Layer(show_plots = False, cv = False, lambd = 0.1, dict
 #train_size: number of samples to train LISTA
 #test_size: number of samples to test the trained LISTA
 
-def Test_example_LISTA_16_Layer(show_plots = False, cv = False, lambd = 0.1, dict = None,  sparsity = 10, n_cols = 200, n_rows = 100, train_size = 500, test_size = 100, batch_size = None, epochs = None):
+def Test_example_LISTA_16_Layer(show_plots = False, cv = False, lambd = 0.1, dict = None, list_x_0 = None, list_test_x_0 = None,  sparsity = 10, n_cols = 200, n_rows = 100, train_size = 500, test_size = 100, batch_size = None, epochs = None, weight_decay = False, AAO = False, double_pass = True):
     L=16
     if dict is None:
         dict = utils.Generate_gaussian_dictionary(n_cols = n_cols, n_rows = n_rows, se = 1)
@@ -275,20 +363,21 @@ def Test_example_LISTA_16_Layer(show_plots = False, cv = False, lambd = 0.1, dic
 
     #We simulate a single signal that we will use to show how LISTA evolves before and after training on a specific example
     #This signal is not seen during training
-    if show_plots:
-        single_x_0 = tf.convert_to_tensor(utils.Create_sparse_x(len(dict[0]), sparsity)) 
-        single_obs = tf.linalg.matvec(dict, single_x_0)
-        single_x_hat_untrained = model(single_obs)[-1]      ##-1 is to get output from last layer
+    single_x_0 = tf.convert_to_tensor(utils.Create_sparse_x(len(dict[0]), sparsity)) 
+    single_obs = tf.linalg.matvec(dict, single_x_0)
+    single_x_hat_untrained = model(single_obs)[-1]      ##-1 is to get output from last layer
 
     #Gen true solutions and observations to train the model
-    list_x_0 = np.array([tf.convert_to_tensor(utils.Create_sparse_x(len(dict[0]), sparsity)) for i in range(train_size)])
+    if list_x_0 is None:
+        list_x_0 = np.array([tf.convert_to_tensor(utils.Create_sparse_x(len(dict[0]), sparsity)) for i in range(train_size)])
     list_obs = [tf.linalg.matvec(dict, list_x_0[i]) for i in range(len(list_x_0))]
 
     #Train model
-    history= lista.train_LISTA_L_Layer(model=model, array_obs=list_obs, array_sols = list_x_0, batch_size = batch_size, epochs=epochs, L=16)
+    history= lista.train_LISTA_L_Layer(model=model, array_obs=list_obs, array_sols = list_x_0, batch_size = batch_size, epochs=epochs, L=16, weight_decay = weight_decay, AAO = AAO, double_pass=double_pass)
     print(history)
     #Test model
-    list_test_x_0 = np.array([tf.convert_to_tensor(utils.Create_sparse_x(len(dict[0]), sparsity)) for i in range(test_size)])
+    if list_test_x_0 is None:
+        list_test_x_0 = np.array([tf.convert_to_tensor(utils.Create_sparse_x(len(dict[0]), sparsity)) for i in range(test_size)])
     list_test_obs = [tf.linalg.matvec(dict, list_test_x_0[i]) for i in range(len(list_test_x_0))]
     list_test_x_hat = []
     for j in range(L):
@@ -297,6 +386,8 @@ def Test_example_LISTA_16_Layer(show_plots = False, cv = False, lambd = 0.1, dic
     for j in range(L):
         avg_error.append(tf.reduce_mean(tf.square(list_test_x_0 - list_test_x_hat[j])))
     print("average error when testing trained 16 layer LISTA : " + str(avg_error[-1].numpy()))
+
+    single_x_hat_trained = model(single_obs)
 
     if show_plots:
         plt.figure()
@@ -316,11 +407,10 @@ def Test_example_LISTA_16_Layer(show_plots = False, cv = False, lambd = 0.1, dic
         plt.legend()
         plt.show()
 
-        single_x_hat_trained = model(single_obs)
         plt.figure()
         plt.title('True coefficients, and coefficients recovered by untrained and trained LISTA')
         plt.plot(single_x_0, label='true coefficients')
-        plt.plot(single_x_hat_untrained, label='untrained LISTA')
+        plt.plot(single_x_hat_untrained, label='untrained LISTA', linestyle="-")
         plt.plot(single_x_hat_trained[0], label='trained LISTA 1st layer output')
         plt.plot(single_x_hat_trained[3], label='trained LISTA 4th layer output')
         plt.plot(single_x_hat_trained[7], label='trained LISTA 8th layer output')
@@ -328,6 +418,8 @@ def Test_example_LISTA_16_Layer(show_plots = False, cv = False, lambd = 0.1, dic
         plt.plot(single_x_hat_trained[15], label='trained LISTA 16th layer output')
         plt.legend()
         plt.show()
+
+    return history, avg_error, single_x_0, single_x_hat_trained
 
 
 

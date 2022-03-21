@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
+import tensorflow as tf
 ##Generate_gaussian_dictionary(): Creates a dictionary with gaussian entries
 # n_cols, n_rows: number of columns (atoms) and rows (signal dimension)
 # se : standard error
@@ -73,16 +73,31 @@ def Cross_validation(Y, A, solver, hyperparameters, nfolds, plot = False):
             test_A = A[test_indices]
             train_Y = Y[train_indices]
             train_A = A[train_indices]
-
-            x_hat = solver(train_Y, hyp, train_A)[0]
-            res = test_Y - np.matmul(test_A,x_hat)
-            RSS[j] += np.dot(res, res)
+            for k in range(len(train_Y)):
+                x_hat = solver(train_Y, hyp, train_A)[0]
+                res = test_Y - np.matmul(test_A,x_hat)
+                RSS[j] += np.dot(res, res)
     if plot:
         plt.plot(RSS)
         plt.show()
 
     best_hyp_index = Get_min_index(RSS)
     return hyperparameters[best_hyp_index]
+
+
+def Cross_validation_list_obs(dict = None, list_x_0 = None, list_obs = None, plot=True, hyperparameters=None, solver=None, nfolds=2):
+    cv_lambda_list = np.zeros(len(list_x_0))
+    for i in range(len(list_x_0)):
+        cv_lambda_list[i] = Cross_validation(Y = np.matmul(dict, list_x_0[i]), A = dict, solver = solver, nfolds=nfolds, hyperparameters=hyperparameters, plot=False)
+        
+        
+    if plot:
+        plt.plot(cv_lambda_list[i])
+        plt.show()
+    mean_lambda = tf.reduce_mean(cv_lambda_list)
+    return mean_lambda
+
+
 
 def Get_min_index(l):
     min_val = min(l)

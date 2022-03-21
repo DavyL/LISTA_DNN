@@ -34,7 +34,27 @@ def ISTA_iter(A, obs, x_hat, thresh_func, L):
         thresh_x[i] = thresh_func(unthresh_x[i])
     return thresh_x
 
+def ISTA_solver_true_res(A, obs, true_val, k_max = 10, err = 0.1, lambd = 1, L = 1):
+    x_hat = np.zeros(len(A[0]))     ##Approximated solution
+    res = obs                         ##Residual y - Ax
+    res_val = np.zeros(k_max)
+    soft_thresh = lambda x : np.sign(x)*max(0, abs(x) - lambd/L)       
+    for k in range(k_max):
+        x_hat = ISTA_iter(A, obs, x_hat, soft_thresh, L)
+        res = true_val - x_hat 
+        res_val[k] = np.dot(res, res)
+    return x_hat, res_val
 
+def ISTA_solver_true_res_Im(A, obs, true_val, k_max = 10, err = 0.1, lambd = 1, L = 1):
+    x_hat = np.zeros(len(A[0]))     ##Approximated solution
+    res = obs                         ##Residual y - Ax
+    res_val = np.zeros(k_max)
+    soft_thresh = lambda x : np.sign(x)*max(0, abs(x) - lambd/L)       
+    for k in range(k_max):
+        x_hat = ISTA_iter(A, obs, x_hat, soft_thresh, L)
+        res = np.matmul(A, true_val - x_hat) 
+        res_val[k] = np.dot(res, res)
+    return x_hat, res_val
 ##FISTA_solver : initializes and computes iterates of FISTA
 def FISTA_solver(A, obs, k_max = 10, err = 0.1, lambd = 1, L = 1):
     res = np.zeros(k_max)
@@ -48,6 +68,30 @@ def FISTA_solver(A, obs, k_max = 10, err = 0.1, lambd = 1, L = 1):
 
     return x, res
 
+def FISTA_solver_true_res(A, obs, true_val, k_max = 10, err = 0.1, lambd = 1, L = 1):
+    res = np.zeros(k_max)
+    y = np.zeros(len(A[0]))
+    x = np.zeros(len(A[0]))     
+    t = 1
+    soft_thresh = lambda x : np.sign(x)*max(0, abs(x) - lambd/L)       
+    for k in range(k_max):
+        x, t, y = FISTA_iter(A, obs, x, t, y, soft_thresh, L)
+        res[k] = np.dot(true_val - x, true_val - x) 
+
+    return x, res
+
+def FISTA_solver_true_res_Im(A, obs, true_val, k_max = 10, err = 0.1, lambd = 1, L = 1):
+    res = np.zeros(k_max)
+    y = np.zeros(len(A[0]))
+    x = np.zeros(len(A[0]))     
+    t = 1
+    soft_thresh = lambda x : np.sign(x)*max(0, abs(x) - lambd/L)       
+    for k in range(k_max):
+        x, t, y = FISTA_iter(A, obs, x, t, y, soft_thresh, L)
+        r = np.matmul(A, true_val - x)
+        res[k] = np.dot(r,r) 
+
+    return x, res
 ##FISTA_iter : performs one step of FISTA
 #FISTA differs from ISTA as it updates the residual at each step depending on some parameters t and y 
 #the new x is computed from y 
