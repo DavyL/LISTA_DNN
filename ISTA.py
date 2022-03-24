@@ -17,7 +17,7 @@ def ISTA_solver(A, obs, k_max = 10, err = 0.1, lambd = 1, L = 1):
     res_val = np.zeros(k_max)
     soft_thresh = lambda x : np.sign(x)*max(0, abs(x) - lambd/L)       
     for k in range(k_max):
-        x_hat = ISTA_iter(A, obs, x_hat, soft_thresh, L)
+        x_hat = ISTA_iter(A, obs, x_hat, soft_thresh, L)####obs ->>>>>>>res ?
         res = obs - np.matmul(A,x_hat) 
         res_val[k] = np.dot(res, res)
     return x_hat, res_val

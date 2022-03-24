@@ -9,6 +9,8 @@ import tensorflow as tf
 from datetime import datetime
 from tensorflow import keras
 from tensorflow.keras import layers
+import os
+
 #tf.config.run_functions_eagerly(True)   ##Not sure what this does but prevents some errors related with "EagerTensors"...
 
 ##soft_threshold, should be turned into a @tf function before implemented in a keras layer
@@ -51,6 +53,27 @@ class ISTA_Layer(keras.layers.Layer):
         neg_ret =  keras.activations.relu( -z - self.theta)    #                   = ReLU(z -theta) - ReLU(-z-theta)
         return  tf.add(pos_ret, - neg_ret)
         """
+
+##ISTA_Layer_CP: a class for a single layer in ISTA
+#Computes linear combinations partially coupled of observed signal and current estimated solution
+#This linear combination then goes through a soft threshold (with threshold theta)
+class ISTA_Layer_CP(keras.layers.Layer):
+    def __init__(self, signal_dim, sol_dim, dict, rate=1e-2, depth = "0" ):
+        super(ISTA_Layer_CP, self).__init__()
+        self.sol_dim = sol_dim
+        self.signal_dim = signal_dim
+        self.rate = rate
+        
+        ## The transpose of W_1 in non coupled ISTA
+        self.W_1 = self.add_weight(shape = (sol_dim, signal_dim), initializer = "random_normal", trainable=True, name="W_1_T at depth" + depth)
+        #self.W_2 = self.add_weight(shape = (sol_dim, sol_dim), initializer = "random_normal", trainable=True, name="W_2 at depth" + depth)
+        self.theta = tf.Variable(0.1, trainable=True, name="theta at depth" + depth)
+        self.dict = tf.cast(dict, dtype = tf.float32)
+
+    def call(self, input_signal, input_sol):
+        interm = input_signal - tf.linalg.matvec(self.dict, input_sol)
+        z = input_sol + tf.linalg.matvec(self.W_1, interm)
+        return soft_threshold(z, self.theta)
 
 ##LISTA_1_Layer : NN model with 1 layer
 #The layer consists of a single ISTA layer
@@ -206,16 +229,120 @@ class LISTA_16_Layer(tf.keras.Model):
 
 
 
+class LISTA_16_Layer_CP(tf.keras.Model):
+    def __init__(self, signal_dim, sol_dim, dict):
+        super().__init__()
+        self.signal_dim = signal_dim
+        self.sol_dim = sol_dim
+        self.dense1 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth ="1", dict = dict)
+        self.dense2 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="2", dict = dict)
+        self.dense3 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="3", dict = dict)
+        self.dense4 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="4", dict = dict)
+        self.dense5 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth ="5", dict = dict)
+        self.dense6 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="6", dict = dict)
+        self.dense7 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="7", dict = dict)
+        self.dense8 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="8"  , dict = dict )     
+        self.dense9 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth ="9", dict = dict)
+        self.dense10 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="10", dict = dict)
+        self.dense11 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="11", dict = dict)
+        self.dense12 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="12", dict = dict  )      
+        self.dense13 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth ="13", dict = dict)
+        self.dense14 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="14", dict = dict)
+        self.dense15 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="15", dict = dict)
+        self.dense16 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="16", dict = dict)
 
+    def call(self, input_signal):
+        x1 = self.dense1(input_signal, tf.zeros(self.sol_dim, dtype=tf.float32))
+        x2 = self.dense2(input_signal, x1)
+        x3 = self.dense3(input_signal, x2)
+        x4 = self.dense4(input_signal, x3)       
+        x5 = self.dense5(input_signal, x4)
+        x6 = self.dense6(input_signal, x5)
+        x7 = self.dense7(input_signal, x6)
+        x8 = self.dense8(input_signal, x7)        
+        x9 = self.dense9(input_signal, x8)
+        x10 = self.dense10(input_signal, x9)
+        x11 = self.dense11(input_signal, x10)
+        x12 = self.dense12(input_signal, x11)
+        x13 = self.dense13(input_signal, x12)
+        x14 = self.dense14(input_signal, x13)
+        x15 = self.dense15(input_signal, x14)
+        x16 = self.dense16(input_signal, x15)
+        return x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16
 
+class LISTA_16_Layer_CP_AAO(tf.keras.Model):
+    def __init__(self, signal_dim, sol_dim, dict):
+        super().__init__()
+        self.signal_dim = signal_dim
+        self.sol_dim = sol_dim
+        self.dense1 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth ="1", dict = dict)
+        self.dense2 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="2", dict = dict)
+        self.dense3 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="3", dict = dict)
+        self.dense4 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="4", dict = dict)
+        self.dense5 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth ="5", dict = dict)
+        self.dense6 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="6", dict = dict)
+        self.dense7 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="7", dict = dict)
+        self.dense8 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="8"  , dict = dict )     
+        self.dense9 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth ="9", dict = dict)
+        self.dense10 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="10", dict = dict)
+        self.dense11 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="11", dict = dict)
+        self.dense12 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="12", dict = dict  )      
+        self.dense13 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth ="13", dict = dict)
+        self.dense14 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="14", dict = dict)
+        self.dense15 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="15", dict = dict)
+        self.dense16 = ISTA_Layer_CP(signal_dim=signal_dim, sol_dim=sol_dim, depth="16", dict = dict)
+
+    def call(self, input_signal):
+        x1 = self.dense1(input_signal, tf.zeros(self.sol_dim, dtype=tf.float32))
+        x2 = self.dense2(input_signal, x1)
+        x3 = self.dense3(input_signal, x2)
+        x4 = self.dense4(input_signal, x3)       
+        x5 = self.dense5(input_signal, x4)
+        x6 = self.dense6(input_signal, x5)
+        x7 = self.dense7(input_signal, x6)
+        x8 = self.dense8(input_signal, x7)        
+        x9 = self.dense9(input_signal, x8)
+        x10 = self.dense10(input_signal, x9)
+        x11 = self.dense11(input_signal, x10)
+        x12 = self.dense12(input_signal, x11)
+        x13 = self.dense13(input_signal, x12)
+        x14 = self.dense14(input_signal, x13)
+        x15 = self.dense15(input_signal, x14)
+        x16 = self.dense16(input_signal, x15)
+        return x16
+
+    def call_by_layers(self, input_signal):
+        x1 = self.dense1(input_signal, tf.zeros(self.sol_dim, dtype=tf.float32))
+        x2 = self.dense2(input_signal, x1)
+        x3 = self.dense3(input_signal, x2)
+        x4 = self.dense4(input_signal, x3)       
+        x5 = self.dense5(input_signal, x4)
+        x6 = self.dense6(input_signal, x5)
+        x7 = self.dense7(input_signal, x6)
+        x8 = self.dense8(input_signal, x7)        
+        x9 = self.dense9(input_signal, x8)
+        x10 = self.dense10(input_signal, x9)
+        x11 = self.dense11(input_signal, x10)
+        x12 = self.dense12(input_signal, x11)
+        x13 = self.dense13(input_signal, x12)
+        x14 = self.dense14(input_signal, x13)
+        x15 = self.dense15(input_signal, x14)
+        x16 = self.dense16(input_signal, x15)
+        return x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16
 
 
 ##setup_LISTA_L_Layer(): Initializes a L layer LISTA and appends a loss
 #By design, our LISTA_L_Layer outputs all the estimates of each layer, 
 #by choosing the loss_weights, we can choose which layer to train
 
-def setup_LISTA_L_Layer(signal_dim, sol_dim, dict, L=16):
-    model = LISTA_16_Layer(signal_dim = signal_dim, sol_dim = sol_dim)
+def setup_LISTA_L_Layer(signal_dim, sol_dim, dict, L=16, CP = False, AAO = False):
+
+    if CP is False:
+        model = LISTA_16_Layer(signal_dim = signal_dim, sol_dim = sol_dim)
+    else:
+        model = LISTA_16_Layer_CP(signal_dim = signal_dim, sol_dim = sol_dim, dict = dict)
+    
+
     weights = np.zeros(16)
     weights[-1] =1
     model.compile(optimizer=keras.optimizers.Adam(), 
@@ -233,7 +360,7 @@ def train_LISTA_L_Layer(model, array_obs, array_sols, batch_size=1, epochs=10, L
     history = dict()
     
     print("Starting to train LISTA "+str(L)+" layer with batchsize" + str(batch_size) + "and epochs" + str(epochs))
-    weights = np.zeros(L)
+    weights = [0 for i in range(L)]
     first_weights = np.zeros(L)
 
     layers = model.layers
@@ -244,12 +371,14 @@ def train_LISTA_L_Layer(model, array_obs, array_sols, batch_size=1, epochs=10, L
     #######All at once training
     if AAO:
         weights[-1] = 1.0
-        for k in range(L):
-            layers[k].trainable = True
+        for layer in layers:
+            layer.trainable = True
         layers[-1].trainable = True
+        lw = {'output_'+str(i):0.0 for i in range(1,L+1)}
+        lw['output_16'] = 1.0
         model.compile(optimizer=keras.optimizers.Adam(), 
-            loss=[keras.losses.MeanSquaredError() for i in range(L)],
-            loss_weights = weights)
+            loss={'output_'+str(i) : keras.losses.MeanSquaredError() for i in range(1,L+1)},
+            loss_weights = lw)
         new_hist = model.fit(x = np.array(array_obs), y = [np.array(array_sols) for i in range(L)], 
                                 batch_size = batch_size,epochs = epochs).history
         print(new_hist)
@@ -288,8 +417,10 @@ def train_LISTA_L_Layer(model, array_obs, array_sols, batch_size=1, epochs=10, L
             weights *= decay    ##decay multiplication MUST BE BEFORE setting i-th weight to 1
         else:
             weights[i-1] = 0.0
+        
+        weights[-1]=0.2 ###Forcing training on last layer
         weights[i] = 1.0
-        for k in range(i):
+        for k in range(L):
             layers[k].trainable = True
         layers[i].trainable = True
         model.compile(optimizer=keras.optimizers.Adam(), 
@@ -315,7 +446,18 @@ def train_LISTA_L_Layer(model, array_obs, array_sols, batch_size=1, epochs=10, L
     return history
 
 
-
+def compute_parameter_decay(model, dict):
+    mat_dif_list = []
+    eig_max_list = []
+    theta_list = []
+    layers = model.layers
+    for l in range(len(layers)):
+        theta_list.append(layers[l].theta)
+    for l in range(len(layers)):
+        mat_dif = layers[l].W_2 -np.identity(n=len(dict[0])) + np.matmul(layers[l].W_1, dict)
+        mat_dif_list.append(mat_dif)
+        eig_max_list.append(max(abs(np.linalg.eigvals(np.matmul(tf.transpose(mat_dif), mat_dif))) ))
+    return mat_dif_list,eig_max_list, theta_list
 
 
 

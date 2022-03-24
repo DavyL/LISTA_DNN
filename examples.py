@@ -353,13 +353,19 @@ def Test_example_LISTA_4_Layer(show_plots = False, cv = False, lambd = 0.1, dict
 #train_size: number of samples to train LISTA
 #test_size: number of samples to test the trained LISTA
 
-def Test_example_LISTA_16_Layer(show_plots = False, cv = False, lambd = 0.1, dict = None, list_x_0 = None, list_test_x_0 = None,  sparsity = 10, n_cols = 200, n_rows = 100, train_size = 500, test_size = 100, batch_size = None, epochs = None, weight_decay = False, AAO = False, double_pass = True):
+def Test_example_LISTA_16_Layer(show_plots = False, cv = False, lambd = 0.1, dict = None, list_x_0 = None, list_test_x_0 = None,  sparsity = 10, n_cols = 200, n_rows = 100, train_size = 500, test_size = 100, batch_size = None, epochs = None, weight_decay = False, AAO = False, double_pass = True, compute_par_decay = False, CP = False):
     L=16
+    eig_max_list=None
+    theta_list=None
+
+    if CP is True:
+        compute_par_decay=False
     if dict is None:
         dict = utils.Generate_gaussian_dictionary(n_cols = n_cols, n_rows = n_rows, se = 1)
+        #dict = tf.convert_to_tensor(dict)
 
     #Gen model
-    model = lista.setup_LISTA_L_Layer(signal_dim = n_rows, sol_dim = n_cols, dict=dict, L=16)
+    model = lista.setup_LISTA_L_Layer(signal_dim = n_rows, sol_dim = n_cols, dict=dict, L=16, CP = CP)
 
     #We simulate a single signal that we will use to show how LISTA evolves before and after training on a specific example
     #This signal is not seen during training
@@ -371,11 +377,14 @@ def Test_example_LISTA_16_Layer(show_plots = False, cv = False, lambd = 0.1, dic
     if list_x_0 is None:
         list_x_0 = np.array([tf.convert_to_tensor(utils.Create_sparse_x(len(dict[0]), sparsity)) for i in range(train_size)])
     list_obs = [tf.linalg.matvec(dict, list_x_0[i]) for i in range(len(list_x_0))]
+    #list_obs = tf.convert_to_tensor(list_obs)
 
     #Train model
     history= lista.train_LISTA_L_Layer(model=model, array_obs=list_obs, array_sols = list_x_0, batch_size = batch_size, epochs=epochs, L=16, weight_decay = weight_decay, AAO = AAO, double_pass=double_pass)
     print(history)
     #Test model
+    print('Testing 16 Layer LISTA')
+
     if list_test_x_0 is None:
         list_test_x_0 = np.array([tf.convert_to_tensor(utils.Create_sparse_x(len(dict[0]), sparsity)) for i in range(test_size)])
     list_test_obs = [tf.linalg.matvec(dict, list_test_x_0[i]) for i in range(len(list_test_x_0))]
@@ -384,10 +393,17 @@ def Test_example_LISTA_16_Layer(show_plots = False, cv = False, lambd = 0.1, dic
         list_test_x_hat.append([model(input_signal = list_test_obs[i])[j] for i in range(len(list_test_obs))])
     avg_error = []
     for j in range(L):
-        avg_error.append(tf.reduce_mean(tf.square(list_test_x_0 - list_test_x_hat[j])))
+        avg_error_step = 0.0
+        for t in range(len(list_test_obs)):
+            avg_error_step += tf.reduce_sum(tf.square(list_test_x_0[t] - list_test_x_hat[j][t]))
+        avg_error.append(avg_error_step/float(len(list_test_obs)))
+        #avg_error.append(tf.reduce_mean(tf.square(list_test_x_0 - list_test_x_hat[j]))) ##Should work (faster)
+ 
     print("average error when testing trained 16 layer LISTA : " + str(avg_error[-1].numpy()))
 
     single_x_hat_trained = model(single_obs)
+
+
 
     if show_plots:
         plt.figure()
@@ -410,7 +426,7 @@ def Test_example_LISTA_16_Layer(show_plots = False, cv = False, lambd = 0.1, dic
         plt.figure()
         plt.title('True coefficients, and coefficients recovered by untrained and trained LISTA')
         plt.plot(single_x_0, label='true coefficients')
-        plt.plot(single_x_hat_untrained, label='untrained LISTA', linestyle="-")
+        #plt.plot(single_x_hat_untrained, label='untrained LISTA', linestyle="--")
         plt.plot(single_x_hat_trained[0], label='trained LISTA 1st layer output')
         plt.plot(single_x_hat_trained[3], label='trained LISTA 4th layer output')
         plt.plot(single_x_hat_trained[7], label='trained LISTA 8th layer output')
@@ -419,7 +435,18 @@ def Test_example_LISTA_16_Layer(show_plots = False, cv = False, lambd = 0.1, dic
         plt.legend()
         plt.show()
 
-    return history, avg_error, single_x_0, single_x_hat_trained
+        if(compute_par_decay):
+            (mat_dif_list,eig_max_list, theta_list) = lista.compute_parameter_decay(model, dict=dict)
+            plt.figure()
+            plt.title('decay of theta and validation of necessary condition')
+            plt.plot(eig_max_list, label='operator norm')
+            plt.plot(theta_list, label='value of theta')
+            plt.legend()
+            plt.show()
+    if(compute_par_decay):
+            (mat_dif_list,eig_max_list, theta_list) = lista.compute_parameter_decay(model, dict=dict)
+
+    return history, avg_error, single_x_0, single_x_hat_trained, eig_max_list, theta_list, model
 
 
 
