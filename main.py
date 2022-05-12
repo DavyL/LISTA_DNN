@@ -25,7 +25,7 @@ else:
 
 #fig_gen.fig_gen_compare_aao_lbl_cp(n_cols = 200, n_rows = 100, sparsity = 50, train_size_aao=40000, train_size_lbl=4000, batch_size=10, epochs =1 )
 
-examples.Test_example_LISTA_16_Layer(show_plots=True, AAO=False, CP = False, compute_par_decay=True, double_pass=False, train_size=10000, test_size=1000, n_cols=200, n_rows=100, batch_size = 10, epochs = 1)
+examples.Test_example_LISTA_16_Layer(show_plots=True, AAO=False, CP = True, compute_par_decay=True, double_pass=False, train_size=10000, test_size=1000, n_cols=200, n_rows=100, batch_size = 10, epochs = 1)
 #fig_gen.fig_gen_compare_aao_lbl(train_size=1000, n_cols=500, n_rows=250, batch_size = 1, epochs = 1)
 #fig_gen.fig_gen_compare_lbl_no_step(train_size=1000, n_cols=50, n_rows=25, batch_size = 10, epochs = 10)
 #fig_gen.fig_gen_compare_LISTA_ISTA(train_size=50000, n_cols=200, n_rows=100, batch_size = 1, epochs = 1)

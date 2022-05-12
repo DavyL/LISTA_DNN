@@ -8,7 +8,7 @@ import tensorflow as tf
 #Returns : A, the dictionary
 
 def Generate_gaussian_dictionary(n_cols, n_rows, se):
-    A = np.random.normal(loc = 0, scale = se, size = (n_rows, n_cols))
+    A = np.random.normal(loc = 0, scale = se, size = (n_rows, n_cols), )
     A = A.transpose()
     for c in range(len(A)):
         A[c] *= 1/np.sqrt(np.dot(A[c], A[c]))
